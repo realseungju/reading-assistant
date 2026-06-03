@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>책 스캔 기록</title>
+    <style>
+        body { font-family: sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; background: #f5f5f5; }
+        h1 { color: #333; }
+        .nav { display: flex; gap: 12px; margin-bottom: 24px; }
+        .nav a { text-decoration: none; padding: 8px 18px; border-radius: 6px; font-size: 0.95em; background: white; border: 1px solid #ddd; color: #555; }
+        .nav a.active { background: #4a90d9; color: white; border-color: #4a90d9; font-weight: bold; }
+        .toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+        .filter select { padding: 8px 12px; border-radius: 6px; border: 1px solid #ddd; font-size: 1em; }
+        .favorite-filter a { text-decoration: none; padding: 8px 16px; border-radius: 6px; font-size: 0.95em; border: 1px solid #ddd; background: white; color: #555; }
+        .favorite-filter a.active { background: #ffe066; border-color: #f5c400; color: #333; font-weight: bold; }
+        .card { background: white; border-radius: 10px; padding: 20px; margin-bottom: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .card-header { display: flex; justify-content: space-between; align-items: center; }
+        .card-header-left { display: flex; align-items: center; gap: 8px; }
+        .date { color: #888; font-size: 0.9em; margin: 8px 0; }
+        .badge { background: #eef; color: #559; padding: 3px 10px; border-radius: 20px; font-size: 0.85em; margin-right: 4px; }
+        .card img { max-width: 100%; border-radius: 8px; margin: 12px 0; }
+        .section-title { font-weight: bold; margin-top: 15px; color: #555; }
+        .text-box { background: #f9f9f9; padding: 10px; border-radius: 6px; white-space: pre-wrap; font-size: 0.9em; }
+        .meta { font-size: 0.85em; color: #aaa; margin-top: 4px; }
+        .favorite-btn { background: none; border: none; font-size: 1.4em; cursor: pointer; padding: 0; }
+        .delete-btn { background: none; border: none; font-size: 1.2em; cursor: pointer; color: #ccc; padding: 0; }
+        .delete-btn:hover { color: #e55; }
+        .memo-box { background: #fffbe6; padding: 10px; border-radius: 6px; font-size: 0.9em; margin-top: 8px; }
+        .action-buttons { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+        .action-btn { padding: 8px 14px; border-radius: 6px; border: 1px solid #ddd; background: white; cursor: pointer; font-size: 0.9em; color: #555; }
+        .action-btn:hover { background: #f0f0f0; }
+        .action-btn.translate { border-color: #4a90d9; color: #4a90d9; }
+        .action-btn.quiz { border-color: #7b5ea7; color: #7b5ea7; }
+        .action-btn.voice { border-color: #e8a838; color: #e8a838; }
+        .result-box { margin-top: 12px; padding: 14px; border-radius: 8px; white-space: pre-wrap; font-size: 0.9em; display: none; }
+        .result-box.translate { background: #eef6ff; border: 1px solid #b3d4f5; }
+        .result-box.quiz { background: #f3eeff; border: 1px solid #c9b3f5; }
+        .result-box.voice { background: #fff8ec; border: 1px solid #f5d9a0; }
+        .loading { color: #aaa; font-style: italic; }
+        .empty { text-align: center; color: #aaa; margin-top: 100px; }
+	/* 단어 하이라이트 */
+	.text-box {
+	    position: relative;
+	    line-height: 1.8;
+	}
+
+	.word-span {
+	    cursor: help;
+	    border-bottom: 1px dashed #94A3B8;
+	    transition: background 0.15s;
+	}
+
+	.word-span:hover {
+	    background: #FEF9C3;
+	    border-radius: 3px;
+	}
+
+	/* 말풍선 툴팁 */
+	.word-tooltip {
+	    position: fixed;
+	    background: #1E293B;
+	    color: #fff;
+	    border-radius: 10px;
+	    padding: 10px 14px;
+	    font-size: 13px;
+	    line-height: 1.6;
+	    max-width: 260px;
+	    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+	    z-index: 9999;
+	    display: none;
+	    pointer-events: none;
+	}
+
+	.word-tooltip::before {
+	    content: '🧒 어린이 설명';
+	    display: block;
+	    font-size: 11px;
+	    color: #FCD34D;
+	    font-weight: 700;
+	    margin-bottom: 5px;
+	}
+
+	.word-tooltip.loading::after {
+	    content: '설명 불러오는 중...';
+	    font-style: italic;
+	    color: #94A3B8;
+	}
+    </style>
+</head>
+<body>
+    <h1>📖 책 스캔 기록</h1>
+
+    <div class="nav">
+        <a href="/" class="active">스캔 기록</a>
+        <a href="/books">책 목록</a>
+    </div>
+
+    <div class="toolbar">
+        <div class="filter">
+            <form method="get">
+                <select name="book_id" onchange="this.form.submit()">
+                    <option value="">전체 보기</option>
+                    {% for book in books %}
+                    <option value="{{ book[0] }}" {% if selected_book == book[0] %}selected{% endif %}>
+                        {{ book[1] }} - {{ book[2] }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+        <div class="favorite-filter">
+            <a href="/" class="{{ 'active' if not favorite_only else '' }}">전체</a>
+            <a href="/?favorite=1" class="{{ 'active' if favorite_only else '' }}">⭐ 즐겨찾기</a>
+        </div>
+    </div>
+
+    {% if scans %}
+        {% for scan in scans %}
+        <div class="card">
+            <div class="card-header">
+                <div class="card-header-left">
+                    <span class="badge">📚 {{ scan[10] if scan[10] else '미분류' }}</span>
+                    {% if scan[2] %}<span class="badge">p.{{ scan[2] }}</span>{% endif %}
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <form method="post" action="/favorite/{{ scan[0] }}">
+                        <button class="favorite-btn" title="즐겨찾기">{{ '⭐' if scan[8] else '☆' }}</button>
+                    </form>
+                    <form method="post" action="/delete/{{ scan[0] }}" onsubmit="return confirm('정말 삭제하시겠습니까?');">
+                        <button class="delete-btn" title="삭제">✕</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="date">📅 {{ scan[3] }}</div>
+
+            {% if scan[4] %}
+            <img src="{{ url_for('static', filename=scan[4]) }}" alt="스캔 이미지">
+            {% endif %}
+
+	    {% if scan[8] %}
+	    <div class="meta">OCR 신뢰도: {{ (scan[8] * 100)|round(1) }}%</div>
+	    {% endif %}
+
+	    <div class="section-title">📄 정리된 원문</div>
+	    <div class="text-box">{{ scan[6] }}</div>
+
+	    <div class="section-title">✨ Gemini 요약</div>
+	    <div class="text-box">{{ scan[7] }}</div>
+
+	    <!-- OCR 원문 버튼 -->
+	    <button class="action-btn" style="margin-top:12px;" onclick="toggleOcr({{ scan[0] }})">🔍 OCR 원문 보기</button>
+	    <div id="ocr-{{ scan[0] }}" style="display:none; margin-top:8px;">
+		<div class="section-title">📝 OCR 원문 (미가공)</div>
+		<div class="text-box">{{ scan[5] }}</div>
+	    </div>
+
+	    {% if scan[10] %}
+	    <div class="section-title">📌 메모</div>
+	    <div class="memo-box">{{ scan[10] }}</div>
+	    {% endif %}
+
+	    <!-- 기능 버튼 -->
+	    <div class="action-buttons">
+		<button class="action-btn translate" onclick="doTranslate({{ scan[0] }}, 'en_to_ko')">🌐 영→한</button>
+		<button class="action-btn translate" onclick="doTranslate({{ scan[0] }}, 'ko_to_en')">🌐 한→영</button>
+		<button class="action-btn quiz" onclick="generateQuiz({{ scan[0] }})">📝 퀴즈 생성</button>
+		<button class="action-btn voice" onclick="playVoice({{ scan[0] }}, 'summary', 'ko')">🔊 요약 듣기</button>
+		<button class="action-btn voice" onclick="playVoice({{ scan[0] }}, 'ocr', 'ko')">🔊 원문 듣기</button>
+	    </div>
+
+            <!-- 번역 결과 -->
+            <div id="translate-{{ scan[0] }}" class="result-box translate"></div>
+            <!-- 퀴즈 결과 -->
+            <div id="quiz-{{ scan[0] }}" class="result-box quiz"></div>
+            <!-- 음성 상태 -->
+            <div id="voice-{{ scan[0] }}" class="result-box voice"></div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty">
+            {% if favorite_only %}
+            즐겨찾기한 기록이 없습니다.
+            {% else %}
+            아직 스캔 기록이 없습니다.
+            {% endif %}
+        </div>
+    {% endif %}
+	<script>
+	    async function doTranslate(scanId, mode) {
+		const box = document.getElementById(`translate-${scanId}`);
+		box.style.display = 'block';
+		box.innerHTML = '<span class="loading">번역 중...</span>';
+		const res = await fetch(`/api/translate/${scanId}`, {
+		    method: 'POST',
+		    headers: { 'Content-Type': 'application/json' },
+		    body: JSON.stringify({ mode })
+		});
+		const data = await res.json();
+		box.innerHTML = data.result || data.error;
+	    }
+
+	    async function generateQuiz(scanId) {
+		const box = document.getElementById(`quiz-${scanId}`);
+		box.style.display = 'block';
+		box.innerHTML = '<span class="loading">퀴즈 생성 중...</span>';
+		const res = await fetch(`/api/quiz/${scanId}`, {
+		    method: 'POST',
+		    headers: { 'Content-Type': 'application/json' }
+		});
+		const data = await res.json();
+		box.innerHTML = data.result || data.error;
+	    }
+
+	    async function playVoice(scanId, contentType, lang) {
+		const box = document.getElementById(`voice-${scanId}`);
+		box.style.display = 'block';
+		box.innerHTML = '<span class="loading">🔊 음성 변환 중...</span>';
+		const res = await fetch(`/api/voice/${scanId}`, {
+		    method: 'POST',
+		    headers: { 'Content-Type': 'application/json' },
+		    body: JSON.stringify({ content_type: contentType, lang })
+		});
+		const data = await res.json();
+		if (data.audio_url) {
+		    // 브라우저에서 직접 재생
+		    box.innerHTML = `
+		        <audio controls autoplay style="width:100%; margin-top:6px;">
+		            <source src="${data.audio_url}" type="audio/mpeg">
+		        </audio>
+		    `;
+		} else {
+		    box.innerHTML = data.error || "오류 발생";
+		}
+	    }
+	    
+	    function toggleOcr(scanId) {
+		const box = document.getElementById(`ocr-${scanId}`);
+		box.style.display = box.style.display === 'none' ? 'block' : 'none';
+	    }
+	    
+	    // 툴팁 요소 생성
+	    const tooltip = document.createElement('div');
+	    tooltip.className = 'word-tooltip';
+	    document.body.appendChild(tooltip);
+
+	    let tooltipTimer = null;
+	    let cache = {};  // 같은 단어 중복 요청 방지
+
+	    // 텍스트박스 내 단어 클릭 이벤트
+	    document.querySelectorAll('.text-box').forEach(box => {
+		box.addEventListener('click', async (e) => {
+		    // 클릭한 위치의 단어 추출
+		    const selection = window.getSelection();
+		    let word = selection ? selection.toString().trim() : '';
+
+		    // 선택된 단어가 없으면 클릭 위치 단어 추출
+		    if (!word) {
+			const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+			if (range) {
+			    range.expand('word');
+			    word = range.toString().trim();
+			}
+		    }
+
+		    // 특수문자 제거, 1글자 이하 무시
+		    word = word.replace(/[^가-힣a-zA-Z0-9]/g, '');
+		    if (!word || word.length < 2) return;
+
+		    const context = box.innerText.slice(0, 200);
+
+		    // 툴팁 위치
+		    tooltip.style.left = (e.clientX + 12) + 'px';
+		    tooltip.style.top  = (e.clientY + 12) + 'px';
+		    tooltip.style.display = 'block';
+		    tooltip.className = 'word-tooltip loading';
+		    tooltip.innerHTML = '';
+
+		    // 캐시 확인
+		    if (cache[word]) {
+			showTooltip(word, cache[word]);
+			return;
+		    }
+
+		    try {
+			const res = await fetch('/api/explain', {
+			    method: 'POST',
+			    headers: { 'Content-Type': 'application/json' },
+			    body: JSON.stringify({ word, context })
+			});
+			const data = await res.json();
+			cache[word] = data.explanation;
+			showTooltip(word, data.explanation);
+		    } catch (err) {
+			tooltip.innerHTML = '설명을 불러오지 못했어요.';
+		    }
+		});
+	    });
+
+	    function showTooltip(word, explanation) {
+		tooltip.className = 'word-tooltip';
+		tooltip.innerHTML = `<strong style="color:#FCD34D; font-size:12px;">🧒 "${word}" 설명</strong><br><br>${explanation}`;
+	    }
+
+	    // 다른 곳 클릭 시 툴팁 닫기
+	    document.addEventListener('click', (e) => {
+		if (!e.target.closest('.text-box')) {
+		    tooltip.style.display = 'none';
+		}
+	    });
+
+	    // 스크롤 시 툴팁 닫기
+	    document.addEventListener('scroll', () => {
+		tooltip.style.display = 'none';
+	    });
+	</script>
+</body>
+</html>
