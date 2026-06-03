@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>책 목록</title>
+    <style>
+        body { font-family: sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; background: #f5f5f5; }
+        h1 { color: #333; }
+        .nav { display: flex; gap: 12px; margin-bottom: 24px; }
+        .nav a { text-decoration: none; padding: 8px 18px; border-radius: 6px; font-size: 0.95em; background: white; border: 1px solid #ddd; color: #555; }
+        .nav a.active { background: #4a90d9; color: white; border-color: #4a90d9; font-weight: bold; }
+        .book-card { background: white; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; gap: 20px; align-items: center; }
+        .book-cover { width: 80px; height: 110px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
+        .book-cover-placeholder { width: 80px; height: 110px; background: #eef; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 2em; flex-shrink: 0; }
+        .book-info { flex: 1; }
+        .book-title { font-size: 1.2em; font-weight: bold; color: #333; margin-bottom: 4px; }
+        .book-author { color: #777; font-size: 0.95em; margin-bottom: 8px; }
+        .book-meta { font-size: 0.85em; color: #aaa; }
+        .book-actions { display: flex; gap: 8px; align-items: center; }
+        .view-btn { text-decoration: none; padding: 7px 14px; border-radius: 6px; background: #4a90d9; color: white; font-size: 0.9em; }
+        .view-btn:hover { background: #357abd; }
+        .delete-btn { background: none; border: 1px solid #ddd; border-radius: 6px; padding: 7px 12px; font-size: 0.9em; cursor: pointer; color: #aaa; }
+        .delete-btn:hover { background: #fee; border-color: #e55; color: #e55; }
+        .empty { text-align: center; color: #aaa; margin-top: 100px; }
+        .scan-count { display: inline-block; background: #eef; color: #559; padding: 2px 10px; border-radius: 20px; font-size: 0.85em; }
+    </style>
+</head>
+<body>
+    <h1>📚 책 목록</h1>
+
+    <!-- 네비게이션 -->
+    <div class="nav">
+        <a href="/">스캔 기록</a>
+        <a href="/books" class="active">책 목록</a>
+    </div>
+
+    {% if books %}
+        {% for book in books %}
+        <div class="book-card">
+            <!-- 표지 이미지 -->
+            {% if book.cover_image %}
+            <img class="book-cover" src="{{ url_for('static', filename=book.cover_image) }}" alt="표지">
+            {% else %}
+            <div class="book-cover-placeholder">📖</div>
+            {% endif %}
+
+            <!-- 책 정보 -->
+            <div class="book-info">
+                <div class="book-title">{{ book.title }}</div>
+                <div class="book-author">{{ book.author if book.author else '저자 미상' }}</div>
+                <div class="book-meta">
+                    <span class="scan-count">스캔 {{ book.scan_count }}회</span>
+                    &nbsp;등록일: {{ book.created_at }}
+                </div>
+            </div>
+
+            <!-- 버튼 -->
+            <div class="book-actions">
+                <a href="/?book_id={{ book.id }}" class="view-btn">스캔 보기</a>
+                <form method="post" action="/delete_book/{{ book.id }}"
+                      onsubmit="return confirm('{{ book.title }} 을(를) 삭제하면 관련 스캔 기록과 이미지도 모두 삭제됩니다.\n정말 삭제하시겠습니까?');">
+                    <button class="delete-btn">🗑 삭제</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty">등록된 책이 없습니다.</div>
+    {% endif %}
+</body>
+</html>
